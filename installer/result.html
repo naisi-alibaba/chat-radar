@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>chat-radar · 首次运行</title>
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --fg:#e6edf3; --dim:#8b949e; --accent:#2ea88a; --accent2:#3fb950; --hot:#f85149; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:radial-gradient(1200px 600px at 50% -10%, #14301f22, transparent), var(--bg);
+    color:var(--fg); font:15px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    min-height:100vh; display:flex; justify-content:center; padding:44px 16px; }
+  .app { width:100%; max-width:720px; }
+  .head { text-align:center; margin-bottom:24px; }
+  .logo { font-size:38px; }
+  h1 { margin:6px 0 4px; font-size:22px; }
+  .sub { color:var(--dim); margin:0; font-size:14px; }
+  .card { border:1px solid var(--line); border-radius:12px; background:var(--card); padding:20px; margin-bottom:16px; }
+  .card h2 { margin:0 0 12px; font-size:16px; display:flex; align-items:center; gap:8px; }
+  .spinner { width:16px; height:16px; border:2px solid var(--accent); border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .log { font:12px/1.6 ui-monospace,Consolas,monospace; color:var(--dim); background:#0b0f14;
+    border:1px solid var(--line); border-radius:8px; padding:10px 12px; max-height:340px; overflow:auto; white-space:pre-wrap; }
+  .stat { font-size:15px; margin-bottom:14px; padding:12px; background:#0b0f14; border:1px solid var(--line); border-radius:8px; text-align:center; }
+  .hotlist b { color:var(--hot); } .hotlist ul { margin:8px 0 0; padding-left:18px; } .hotlist li { margin:4px 0; color:var(--fg); }
+  .btn { display:inline-block; margin-top:14px; padding:11px 20px; border-radius:8px; background:var(--accent); color:#fff; text-decoration:none; font-weight:600; }
+  .btn:hover { background:#37c0a0; }
+  .dim { color:var(--dim); font-size:13px; margin-top:12px; }
+  .skip { display:flex; align-items:center; gap:8px; margin-top:18px; padding-top:16px; border-top:1px solid var(--line); color:var(--fg); cursor:pointer; font-size:14px; }
+  .skip input { width:auto; }
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="head">
+      <div class="logo">📡</div>
+      <h1>首次运行</h1>
+      <p class="sub">让你看清它在做什么——扫描你的群、逐个裁定、推上飞书看板。</p>
+    </div>
+
+    <div class="card" id="progressCard">
+      <h2><span class="spinner" id="spin"></span> <span id="progressTitle">正在运行…</span></h2>
+      <div class="log" id="log">连接中…</div>
+    </div>
+
+    <div class="card" id="resultCard" style="display:none">
+      <h2>✅ 运行完成</h2>
+      <div id="summary"></div>
+      <div id="baseLink"></div>
+      <label class="skip"><input type="checkbox" id="skip" /> 下次跳过进度展示，直接看结果</label>
+    </div>
+  </div>
+<script>
+  const es = new EventSource('/events');
+  const logBox = document.getElementById('log');
+  let skipProgress = false;
+
+  async function init() {
+    const s = await fetch('/api/settings').then((x) => x.json()).catch(() => ({}));
+    skipProgress = !!s.skip_progress;
+    document.getElementById('skip').checked = skipProgress;
+    if (skipProgress) { logBox.style.display = 'none'; document.getElementById('progressTitle').textContent = '正在运行（已设为跳过进度）…'; }
+    try { await fetch('/run-radar', { method: 'POST' }); }
+    catch { document.getElementById('progressTitle').textContent = '无法连接本地服务'; }
+  }
+
+  es.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'radar-start') { if (!skipProgress) logBox.textContent = ''; }
+    else if (m.type === 'radar-log' && !skipProgress) {
+      if (logBox.textContent === '连接中…') logBox.textContent = '';
+      logBox.textContent += m.text; logBox.scrollTop = logBox.scrollHeight;
+    }
+    else if (m.type === 'radar-done') { showResult(); }
+  };
+
+  async function showResult() {
+    document.getElementById('spin').style.display = 'none';
+    document.getElementById('progressTitle').textContent = '✓ 已完成，结果如下';
+    const r = await fetch('/api/result').then((x) => x.json()).catch(() => ({ rows: [] }));
+    renderSummary(r.rows || [], r.baseUrl || '');
+    document.getElementById('resultCard').style.display = 'block';
+  }
+
+  function renderSummary(rows, baseUrl) {
+    const cnt = (c) => rows.filter((r) => r.category === c && !r.hot).length;
+    const hot = rows.filter((r) => r.hot);
+    let html = '<div class="stat">🔥 火线 <b>' + hot.length + '</b> ·  🎯 拍板 ' + cnt('lead')
+      + ' ·  💬 接话 ' + cnt('reply') + ' ·  👀 吃瓜 ' + cnt('watch') + ' ·  🔇 免看 ' + cnt('ignore')
+      + '　（共扫出 ' + rows.length + ' 个活跃群）</div>';
+    if (hot.length) {
+      html += '<div class="hotlist"><b>🔥 该你先看的：</b><ul>';
+      for (const r of hot.slice(0, 8)) html += '<li>' + esc(r.chat_name) + ' — ' + esc(r.headline) + '</li>';
+      html += '</ul></div>';
+    }
+    document.getElementById('summary').innerHTML = html;
+    document.getElementById('baseLink').innerHTML = baseUrl
+      ? '<a class="btn" href="' + baseUrl + '" target="_blank" rel="noopener">打开飞书看板 →</a>'
+      : '<div class="dim">已推送到飞书「chat-radar 群聊雷达」多维表格，去飞书打开即可。</div>';
+  }
+  function esc(s) { return String(s || '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c])); }
+
+  document.getElementById('skip').onchange = (e) => {
+    fetch('/api/skip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ skip: e.target.checked }) });
+  };
+
+  init();
+</script>
+</body>
+</html>

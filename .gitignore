@@ -1,0 +1,37 @@
+# 依赖目录
+node_modules/
+.pnpm-store/
+__pycache__/
+.venv/
+venv/
+
+# 密钥与本地环境（重要：不要提交！）
+.env
+.env.local
+*.key
+*.pem
+
+# 构建产物
+dist/
+build/
+out/
+
+# 日志与临时文件
+*.log
+tmp/
+.DS_Store
+Thumbs.db
+
+# chat-radar：个人配置（含真实职责/群）与本地数据，绝不提交
+config/me.yaml
+config/chats.yaml
+config/settings.yaml
+*.db
+data/
+
+# 私有沉淀 & 开发环境文件（不进公开仓库）
+knowledge/
+CLAUDE.md
+项目初始化指南.md
+.claude/
+.mcp.json

@@ -1,0 +1,7 @@
+# 要监控的群列表。v0.1 先挑 3–5 个高价值群验证裁定质量即可。
+# chat_id 用「chat-radar 帮你拉出来的群列表」填（下一步生成）。
+
+chats:
+  - chat_id: oc_xxxxxxxxxxxxxxxx
+    name: 示例·某项目群
+    lookback: 100        # 每次回看最近多少条消息

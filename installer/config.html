@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>chat-radar 配置 · 信息版图</title>
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --fg:#e6edf3; --dim:#8b949e; --accent:#2ea88a; --accent2:#3fb950; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:radial-gradient(1200px 600px at 50% -10%, #14301f22, transparent), var(--bg);
+    color:var(--fg); font:15px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    min-height:100vh; display:flex; justify-content:center; padding:40px 16px; }
+  .app { width:100%; max-width:720px; }
+  .head { text-align:center; margin-bottom:24px; }
+  .logo { font-size:36px; }
+  h1 { margin:6px 0 4px; font-size:22px; }
+  .sub { color:var(--dim); margin:0; font-size:14px; }
+  .card { border:1px solid var(--line); border-radius:12px; background:var(--card); padding:20px; margin-bottom:16px; }
+  .card h2 { margin:0 0 4px; font-size:16px; }
+  .card .hint { color:var(--dim); font-size:13px; margin:0 0 14px; }
+  .field { margin-bottom:14px; }
+  label { display:block; font-size:13px; color:var(--dim); margin-bottom:6px; }
+  label b { color:var(--fg); font-weight:600; }
+  input, textarea { width:100%; padding:9px 11px; border-radius:8px; border:1px solid var(--line);
+    background:#0b0f14; color:var(--fg); font:14px/1.5 inherit; resize:vertical; }
+  textarea { min-height:64px; }
+  .auto { display:flex; align-items:center; gap:8px; background:#0e2b1e33; border:1px solid #234; border-radius:8px; padding:10px 12px; }
+  .auto .who { font-weight:600; } .auto .tag { margin-left:auto; color:var(--accent2); font-size:12px; }
+  .btn { display:inline-block; padding:11px 20px; border-radius:8px; border:none; cursor:pointer;
+    background:var(--accent); color:#fff; font-size:15px; font-weight:600; }
+  .btn:hover { background:#37c0a0; } .btn:disabled { opacity:.6; cursor:default; }
+  .save-row { display:flex; align-items:center; gap:14px; }
+  .msg { color:var(--accent2); font-size:14px; }
+  .foot { text-align:center; color:var(--dim); font-size:13px; margin-top:8px; }
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="head">
+      <div class="logo">🧭</div>
+      <h1>配置你的「信息版图」</h1>
+      <p class="sub">这是裁定的命脉——填得越贴近你的真实职责，判断越准。全部写入本机 config/，不外传。</p>
+    </div>
+
+    <div class="card">
+      <h2>你是谁</h2>
+      <p class="hint">身份已从飞书登录自动识别，open_id 你完全不用管。</p>
+      <div class="auto">
+        <span class="who" id="who">识别中…</span>
+        <span class="tag" id="oid"></span>
+      </div>
+      <div class="field" style="margin-top:14px">
+        <label><b>一句话角色</b>　帮 AI 理解你的立场</label>
+        <input id="role" placeholder="例：负责账号体系、OTA/系统更新、帮助与反馈后台" />
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>你负责什么 / 关注什么</h2>
+      <p class="hint">每行一项。owns 里的东西出现 → 多半该你拍板/接话；follows → 通常吃瓜/接话。</p>
+      <div class="field"><label><b>我负责的项目 / 模块（owns）</b></label>
+        <textarea id="owns" placeholder="账号&#10;OTA、系统更新、固件更新&#10;帮助与反馈后台"></textarea></div>
+      <div class="field"><label><b>我关注但不主导的主题（follows）</b></label>
+        <textarea id="follows" placeholder="隐私协议 / 等保 / 合规&#10;品牌信息&#10;短信签名 / 备案"></textarea></div>
+    </div>
+
+    <div class="card">
+      <h2>关键人 & 关键词</h2>
+      <p class="hint">关键人点名找你，权重更高；关键词命中就提高相关度。</p>
+      <div class="field"><label><b>关键人</b>　每行一个，格式「名字｜关系」</label>
+        <textarea id="people" placeholder="Mia｜跨团队协作方&#10;Kaysaith｜下属"></textarea></div>
+      <div class="field"><label><b>关键词</b>　每行一个</label>
+        <textarea id="keywords" placeholder="花名&#10;项目代号"></textarea></div>
+      <div class="field"><label><b>我在意的信号（care_about）</b></label>
+        <textarea id="care"></textarea></div>
+    </div>
+
+    <div class="card">
+      <h2>群聊 &amp; 时间</h2>
+      <p class="hint">控制每次刷新扫多近的消息、要不要跳过免打扰群。（监控范围默认：你所在的全部群）</p>
+      <div class="field"><label><b>只看最近几天有更新的群</b></label>
+        <input id="days" type="number" min="1" max="90" value="15" /></div>
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--fg)">
+        <input id="muted" type="checkbox" style="width:auto" /> 排除我设了免打扰的群（通常是噪音）</label>
+    </div>
+
+    <div class="card">
+      <div class="save-row">
+        <button class="btn" id="save">保存全部配置</button>
+        <span class="msg" id="msg"></span>
+      </div>
+    </div>
+    <p class="foot">保存后即可 <code>node bin/chat-radar.js refresh</code> 看效果；之后每 15 分钟自动刷新。</p>
+  </div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const linesToArr = (s) => s.split('\n').map((x) => x.trim()).filter(Boolean);
+  const arrToLines = (a) => (a || []).join('\n');
+  let openId = '';
+
+  async function load() {
+    const [prof, s] = await Promise.all([
+      fetch('/api/profile').then((x) => x.json()).catch(() => ({})),
+      fetch('/api/settings').then((x) => x.json()).catch(() => ({})),
+    ]);
+    openId = prof.open_id || '';
+    $('who').textContent = prof.name || '（未识别到飞书身份，请先在向导完成授权）';
+    $('oid').textContent = openId ? 'open_id 已自动获取' : '';
+    const me = prof.me || {};
+    $('role').value = (me.identity && me.identity.role) || '';
+    $('owns').value = arrToLines(me.owns);
+    $('follows').value = arrToLines(me.follows);
+    $('people').value = (me.people || []).map((p) => `${p.name || ''}｜${p.relation || ''}`).join('\n');
+    $('keywords').value = arrToLines(me.keywords);
+    $('care').value = arrToLines(me.care_about && me.care_about.length ? me.care_about : ['需要我确认的方案', '等我拍板的决策', '指派给我的任务']);
+    $('days').value = s.days || 15;
+    $('muted').checked = !!s.exclude_muted;
+  }
+
+  $('save').onclick = async () => {
+    const people = linesToArr($('people').value).map((line) => {
+      const [name, relation] = line.split(/[｜|]/);
+      return { name: (name || '').trim(), relation: (relation || '').trim() };
+    });
+    const mePayload = {
+      name: $('who').textContent, open_id: openId, role: $('role').value.trim(),
+      owns: linesToArr($('owns').value), follows: linesToArr($('follows').value),
+      people, keywords: linesToArr($('keywords').value), care_about: linesToArr($('care').value),
+    };
+    const sPayload = { days: Number($('days').value) || 15, exclude_muted: $('muted').checked };
+    $('save').disabled = true; $('msg').textContent = '写入中…';
+    const [r1, r2] = await Promise.all([
+      fetch('/api/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mePayload) }).then((x) => x.json()).catch(() => ({})),
+      fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sPayload) }).then((x) => x.json()).catch(() => ({})),
+    ]);
+    $('save').disabled = false;
+    if (r1.ok && r2.ok) {
+      $('msg').textContent = '✓ 已保存，正在进入控制台…';
+      setTimeout(() => { location.href = '/'; }, 700);
+    } else {
+      $('msg').textContent = '✗ 保存失败';
+    }
+  };
+
+  load();
+</script>
+</body>
+</html>

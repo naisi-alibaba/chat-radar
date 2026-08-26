@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>chat-radar 安装向导</title>
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --fg:#e6edf3; --dim:#8b949e;
+    --accent:#2ea88a; --accent2:#3fb950; --warn:#d29922; --err:#f85149; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:radial-gradient(1200px 600px at 50% -10%, #14301f22, transparent), var(--bg);
+    color:var(--fg); font:15px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    min-height:100vh; display:flex; justify-content:center; padding:48px 16px; }
+  .app { width:100%; max-width:720px; position:relative; }
+  .head { text-align:center; margin-bottom:32px; }
+  .logo { font-size:40px; }
+  h1 { margin:8px 0 4px; font-size:24px; letter-spacing:.5px; }
+  .sub { color:var(--dim); margin:0; font-size:14px; }
+  .badge { display:inline-block; margin-top:12px; padding:4px 12px; border:1px solid var(--line);
+    border-radius:999px; color:var(--accent2); font-size:12px; background:#0e2b1e33; }
+  .conn { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--err); margin-right:6px; vertical-align:middle; }
+  .conn.on { background:var(--accent2); }
+  .reload { position:absolute; right:0; top:0; display:inline-flex; align-items:center; gap:6px;
+    padding:7px 13px; border:1px solid var(--line); border-radius:8px; background:var(--card);
+    color:var(--fg); font-size:13px; cursor:pointer; }
+  .reload:hover { border-color:var(--accent); color:var(--accent); }
+  .reload .ico { font-size:15px; }
+  ol.steps { list-style:none; margin:0; padding:0; }
+  li.step { position:relative; padding:16px 16px 16px 56px; border:1px solid var(--line);
+    border-radius:12px; background:var(--card); margin-bottom:12px; transition:border-color .2s; }
+  li.step[data-status="running"] { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+  .dot { position:absolute; left:16px; top:16px; width:26px; height:26px; border-radius:50%;
+    display:grid; place-items:center; font-size:14px; border:2px solid var(--line); color:var(--dim); font-weight:700; }
+  [data-status="running"] .dot { border-color:var(--accent); color:var(--accent); border-top-color:transparent; animation:spin 1s linear infinite; }
+  [data-status="done"] .dot { border-color:var(--accent2); color:var(--accent2); background:#0e2b1e; }
+  [data-status="warn"] .dot { border-color:var(--warn); color:var(--warn); }
+  [data-status="error"] .dot { border-color:var(--err); color:var(--err); }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .title { font-weight:600; } .desc { color:var(--dim); font-size:13px; }
+  .log { margin-top:10px; font:12px/1.5 ui-monospace,Consolas,monospace; color:var(--dim);
+    background:#0b0f14; border:1px solid var(--line); border-radius:8px; padding:8px 10px;
+    max-height:150px; overflow:auto; white-space:pre-wrap; display:none; }
+  .log.show { display:block; }
+  .extra { margin-top:12px; display:none; } .extra.show { display:block; }
+  .btn { display:inline-block; padding:9px 16px; border-radius:8px; border:none; cursor:pointer;
+    background:var(--accent); color:#fff; font-size:14px; font-weight:600; text-decoration:none; }
+  .btn:hover { background:#37c0a0; }
+  .code { display:inline-block; margin-left:10px; font:600 15px ui-monospace,monospace; letter-spacing:2px; color:var(--accent2); }
+  input.key { width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line);
+    background:#0b0f14; color:var(--fg); font-size:14px; margin-bottom:8px; }
+  .done { margin-top:20px; padding:20px; border:1px solid var(--accent2); border-radius:12px;
+    background:#0e2b1e33; text-align:center; display:none; } .done.show { display:block; }
+  .done h2 { margin:0 0 6px; color:var(--accent2); }
+  .foot { margin-top:16px; text-align:center; color:var(--dim); font-size:13px; min-height:20px; }
+</style>
+</head>
+<body>
+  <div class="app">
+    <button class="reload" id="reload" title="重新运行整个流程"><span class="ico">↻</span> 重载</button>
+    <div class="head">
+      <div class="logo">📡</div>
+      <h1>chat-radar 安装向导</h1>
+      <p class="sub">全程在你本机执行 · 零 AI 驱动 · 卡住随时点右上角「↻ 重载」重来</p>
+      <span class="badge"><span class="conn" id="conn"></span> 本地服务</span>
+    </div>
+    <ol class="steps" id="steps">
+      <li class="step" data-id="env" data-status="pending"><span class="dot">1</span>
+        <div class="title">环境检测</div><div class="desc">检查 Node.js 版本</div><div class="extra"></div><div class="log"></div></li>
+      <li class="step" data-id="cli" data-status="pending"><span class="dot">2</span>
+        <div class="title">安装飞书官方 CLI</div><div class="desc">@larksuite/cli（已装则跳过）</div><div class="extra"></div><div class="log"></div></li>
+      <li class="step" data-id="auth" data-status="pending"><span class="dot">3</span>
+        <div class="title">授权飞书账号</div><div class="desc">已登录则跳过；否则浏览器授权，无需自建应用</div><div class="extra"></div><div class="log"></div></li>
+      <li class="step" data-id="deps" data-status="pending"><span class="dot">4</span>
+        <div class="title">安装项目依赖</div><div class="desc">npm install</div><div class="extra"></div><div class="log"></div></li>
+      <li class="step" data-id="key" data-status="pending"><span class="dot">5</span>
+        <div class="title">配置 DeepSeek Key</div><div class="desc">只写入本机 .env，不外传</div><div class="extra"></div><div class="log"></div></li>
+    </ol>
+    <div class="done" id="done">
+      <h2>✅ 环境就绪</h2>
+      <div id="done-text">下一步：配置你的「信息版图」——它决定裁定准不准。</div>
+      <div style="margin-top:14px"><a class="btn" href="/config">配置信息版图 →</a></div>
+      <div style="margin-top:10px;color:var(--dim);font-size:13px">配完即可 <code>node bin/chat-radar.js refresh</code>，之后每 15 分钟自动刷新。</div>
+    </div>
+    <div class="foot" id="foot">正在连接本地向导服务…</div>
+  </div>
+<script>
+  const ICON = { done:'✓', warn:'!', error:'✕' };
+  const el = (id) => document.querySelector('.step[data-id="'+id+'"]');
+  function setStatus(id, status) {
+    const s = el(id); if (!s) return;
+    s.dataset.status = status;
+    const dot = s.querySelector('.dot');
+    const n = [...s.parentNode.children].indexOf(s) + 1;
+    dot.textContent = ICON[status] || n;
+  }
+  function addLog(id, text) {
+    const s = el(id); if (!s) return;
+    const log = s.querySelector('.log'); log.classList.add('show');
+    log.textContent += (log.textContent ? '\n' : '') + text; log.scrollTop = log.scrollHeight;
+  }
+  function extra(id) { const s = el(id); const e = s.querySelector('.extra'); e.classList.add('show'); return e; }
+
+  function reset() {
+    document.querySelectorAll('.step').forEach((s, i) => {
+      s.dataset.status = 'pending';
+      s.querySelector('.dot').textContent = i + 1;
+      const log = s.querySelector('.log'); log.textContent = ''; log.classList.remove('show');
+      const ex = s.querySelector('.extra'); ex.innerHTML = ''; ex.classList.remove('show');
+    });
+    document.getElementById('done').classList.remove('show');
+    document.getElementById('foot').textContent = '开始…';
+  }
+  async function startRun() {
+    reset();
+    try { await fetch('/run', { method: 'POST' }); } catch { document.getElementById('foot').textContent = '无法连接本地服务，请重启向导（关掉黑窗口重新双击 install.cmd）'; }
+  }
+
+  let firstRun = true;
+  const es = new EventSource('/events');
+  es.onopen = () => {
+    document.getElementById('conn').classList.add('on');
+    document.getElementById('foot').textContent = '';
+    if (firstRun) { firstRun = false; startRun(); }
+  };
+  es.onerror = () => { document.getElementById('conn').classList.remove('on'); };
+  es.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'step') setStatus(m.id, m.status);
+    else if (m.type === 'log') addLog(m.id, m.text);
+    else if (m.type === 'auth') {
+      const box = extra('auth');
+      box.innerHTML = '<a class="btn" href="'+m.url+'" target="_blank" rel="noopener">打开授权页</a>'
+        + (m.code ? '<span class="code">'+m.code+'</span>' : '')
+        + '<div style="color:var(--dim);font-size:12px;margin-top:8px">授权后本页会自动继续</div>';
+    }
+    else if (m.type === 'auth-done') { const s = el('auth'); s.querySelector('.extra').classList.remove('show'); }
+    else if (m.type === 'need-key') {
+      const box = extra('key');
+      box.innerHTML = '<input class="key" type="password" id="keyInput" placeholder="粘贴 DeepSeek API key (sk-...)" />'
+        + '<button class="btn" id="keyBtn">保存并继续</button>';
+      document.getElementById('keyBtn').onclick = async () => {
+        const key = document.getElementById('keyInput').value.trim();
+        if (!key) return;
+        document.getElementById('keyBtn').textContent = '写入中…';
+        await fetch('/save-key', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key }) });
+        box.classList.remove('show');
+      };
+    }
+    else if (m.type === 'done') {
+      document.getElementById('done').classList.add('show');
+      if (m.text) document.getElementById('done-text').textContent = m.text;
+      document.getElementById('foot').textContent = '';
+    }
+    else if (m.type === 'fatal') { document.getElementById('foot').textContent = '出错：' + m.text + '（可点右上角 ↻ 重载重试）'; }
+  };
+
+  document.getElementById('reload').onclick = startRun;
+</script>
+</body>
+</html>
