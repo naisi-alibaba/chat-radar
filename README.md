@@ -1,5 +1,7 @@
 # chat-radar
 
+[![飞书 Feishu/Lark](https://img.shields.io/badge/飞书-Feishu%20%2F%20Lark-00D6B9?logo=feishu&logoColor=white)](https://open.feishu.cn/) [![DeepSeek](https://img.shields.io/badge/LLM-DeepSeek-4D6BFE?logo=deepseek&logoColor=white)](https://www.deepseek.com/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE) [![Node](https://img.shields.io/badge/Node-%E2%89%A522-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/) ![Self-hosted BYOK](https://img.shields.io/badge/Self--hosted-BYOK-4c9aff)
+
 飞书群聊信息面板：用 AI 替你判断每个群里的信息与你的关系，并把你可能漏掉的**补齐**。
 
 面向群多、信息杂的飞书重度用户（白领 / 高校）。**自托管 · BYOK（自带凭证）· 数据只在你本机流动。**
