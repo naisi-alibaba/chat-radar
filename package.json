@@ -1,6 +1,6 @@
 {
   "name": "chat-radar",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "飞书群聊信息面板：AI 替你判断每个群的信息与你的关系，并补齐你可能漏掉的。自托管 / BYOK。",
   "type": "module",
   "bin": {

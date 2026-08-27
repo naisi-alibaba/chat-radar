@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import process from 'node:process'
-import { larkRaw, authStatus, listChats, listMessages } from '../src/feishu/lark.js'
+import { larkRaw, authStatus, listChats, listMessagesAsync, pool } from '../src/feishu/lark.js'
 
 process.removeAllListeners('warning')
 process.on('warning', (w) => {
@@ -27,7 +27,7 @@ const handler = commands[cmd] ?? (cmd ? unknown : usage)
 await handler()
 
 function usage() {
-  console.log(`chat-radar v0.5.0 — 飞书群聊信息面板（自托管 / BYOK）
+  console.log(`chat-radar v0.6.0 — 飞书群聊信息面板（自托管 / BYOK）
 
 用法：chat-radar <命令>
 
@@ -76,50 +76,96 @@ function chats() {
 async function sync() {
   const { loadConfig } = await import('../src/config/load.js')
   const { triageChat } = await import('../src/triage/triage.js')
-  const { openDb, saveVerdict } = await import('../src/store/db.js')
+  const { openDb, saveVerdict, allVerdicts } = await import('../src/store/db.js')
   const { daysSince, timeBucket } = await import('../src/util/time.js')
 
   const { me, categories, overlay } = loadConfig()
   let settings = {}
   try { settings = (await import('yaml')).parse(readFileSync('config/settings.yaml', 'utf8')) || {} } catch {}
   const activeDays = Number(argValue('--days') ?? settings.days ?? 15)
+  const full = process.argv.includes('--full') || process.argv.includes('--force')
+  const probeConc = Number(settings.sync_concurrency ?? 6)
+  const triageConc = Number(settings.triage_concurrency ?? 2)
+  const openId = me.identity && me.identity.open_id
   const limitArg = argValue('--limit')
   let ordered = listChats({ excludeMuted: !!settings.exclude_muted })
   if (limitArg) ordered = ordered.slice(0, Number(limitArg))
 
   const db = openDb()
   const syncedAt = new Date().toISOString()
+  const prev = new Map(allVerdicts(db).map((r) => [r.chat_id, r]))
 
-  console.log(`扫描 ${ordered.length} 个群，裁定近 ${activeDays} 天有更新的…\n`)
-  let done = 0
-  for (let i = 0; i < ordered.length; i++) {
-    const chat = ordered[i]
-    const tag = `[${i + 1}/${ordered.length}]`
-    let latest
-    try {
-      const probe = listMessages(chat.chat_id, { pageSize: 5 })
-      if (probe.length === 0) { console.log(`${tag} ${chat.name}·空群，跳过`); continue }
-      latest = probe[probe.length - 1].time
-    } catch {
-      console.log(`${tag} ${chat.name}·读取失败，跳过`); continue
+  // A. 并发 probe：逐群拉最新一条真实消息，拿 { latest_time, message_id }
+  console.log(`探测 ${ordered.length} 个群的最新消息（并发 ${probeConc}）…`)
+  let probed = 0
+  const probes = await pool(ordered, probeConc, async (chat) => {
+    const msgs = await listMessagesAsync(chat.chat_id, { pageSize: 15 })
+    probed++
+    process.stdout.write(`\r  探测 [${probed}/${ordered.length}]        `)
+    if (!msgs.length) return null
+    const last = msgs[msgs.length - 1]
+    return { latest_time: last.time, message_id: last.message_id }
+  })
+  process.stdout.write('\n')
+
+  // B. 三分类：不活跃丢弃 / 指纹未变复用 / 变了·新群·--full 待裁
+  const reuse = []
+  const triageList = []
+  ordered.forEach((chat, i) => {
+    const p = probes[i]
+    if (!p || !p.ok || !p.value) return
+    const { latest_time, message_id } = p.value
+    if (daysSince(latest_time) > activeDays) return
+    const old = prev.get(chat.chat_id)
+    if (!full && old && old.last_message_id && old.last_message_id === message_id) {
+      reuse.push({ chat, old, latest_time })
+    } else {
+      triageList.push({ chat, latest_time, message_id })
     }
-    if (daysSince(latest) > activeDays) { console.log(`${tag} ${chat.name}·${Math.round(daysSince(latest))}天前，跳过`); continue }
-    try {
-      const messages = listMessages(chat.chat_id, { pageSize: chat.lookback ?? 50 })
-      const v = await triageChat({ chat, messages, me }, categories, overlay)
-      v.time_bucket = timeBucket(latest)
-      v.avatar = chat.avatar || ''
-      v.latest_time = latest
-      v.mention_count = messages.filter((m) => (m.mentions || []).includes(me.identity && me.identity.open_id)).length
-      saveVerdict(db, v, syncedAt)
-      done++
-      console.log(`${tag} ${labelOf(v.category, categories)}${v.hot ? '🔥' : ''} [${bucketZh(v.time_bucket)}] ${chat.name} — ${v.headline}`)
-    } catch (e) {
-      console.log(`${tag} ${chat.name}·裁定失败：${String(e.message).slice(0, 40)}`)
-    }
+  })
+
+  // C. 复用旧裁定（火线随时间自动冷却，纯本地算、不烧 token）
+  for (const { chat, old, latest_time } of reuse) {
+    const bucket = timeBucket(latest_time)
+    saveVerdict(db, {
+      ...old,
+      chat_name: chat.name,
+      avatar: chat.avatar || old.avatar || '',
+      time_bucket: bucket,
+      hot: old.hot && bucket === 'today' ? 1 : 0,
+      latest_time,
+      last_message_id: old.last_message_id,
+      key_people: safeParse(old.key_people),
+    }, syncedAt)
   }
+
+  // D. 新裁：拉 lookback 条 + triageChat，低并发避 DeepSeek 频控
+  console.log(`复用 ${reuse.length} 个，新裁 ${triageList.length} 个…\n`)
+  let newDone = 0
+  const tr = await pool(triageList, triageConc, async ({ chat, latest_time, message_id }) => {
+    const messages = await listMessagesAsync(chat.chat_id, { pageSize: chat.lookback ?? 50 })
+    const v = await triageChat({ chat, messages, me }, categories, overlay)
+    v.time_bucket = timeBucket(latest_time)
+    v.avatar = chat.avatar || ''
+    v.latest_time = latest_time
+    v.last_message_id = message_id
+    v.mention_count = messages.filter((m) => (m.mentions || []).includes(openId)).length
+    saveVerdict(db, v, syncedAt)
+    newDone++
+    console.log(`  [${newDone}/${triageList.length}] ${labelOf(v.category, categories)}${v.hot ? '🔥' : ''} [${bucketZh(v.time_bucket)}] ${chat.name} — ${v.headline}`)
+    return v
+  })
+  const newCount = tr.filter((r) => r.ok).length
+  const failCount = tr.length - newCount
+
   db.close()
-  console.log(`\n裁定了 ${done} 个近 ${activeDays} 天活跃群。chat-radar push 推看板。`)
+  const skipped = ordered.length - reuse.length - newCount
+  console.log(`\n复用 ${reuse.length} · 新裁 ${newCount}${failCount ? ` · 失败 ${failCount}` : ''} · 跳过 ${skipped}（不活跃/空群）。chat-radar push 推看板。`)
+}
+
+function safeParse(s) {
+  if (Array.isArray(s)) return s
+  try { return JSON.parse(s) } catch { return [] }
 }
 
 async function list() {

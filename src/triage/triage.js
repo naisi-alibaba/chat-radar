@@ -5,7 +5,7 @@ export async function triageChat({ chat, messages, me }, categories, overlay) {
     return {
       chat_id: chat.chat_id, chat_name: chat.name,
       category: 'ignore', hot: false, headline: '近期无消息',
-      reason: '', suggested_action: '', key_people: [], related: '',
+      reason: '', suggested_action: '', key_people: [], related: '', last_message_id: '',
     }
   }
   const provider = createProvider()
@@ -13,7 +13,7 @@ export async function triageChat({ chat, messages, me }, categories, overlay) {
     buildSystem(me, categories, overlay),
     buildUser(chat, messages, me),
   )
-  return { chat_id: chat.chat_id, chat_name: chat.name, ...verdict }
+  return { chat_id: chat.chat_id, chat_name: chat.name, ...verdict, last_message_id: messages[messages.length - 1]?.message_id ?? '' }
 }
 
 function buildSystem(me, categories, overlay) {

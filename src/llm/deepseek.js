@@ -5,7 +5,7 @@ export function createDeepSeek({
 } = {}) {
   if (!apiKey) throw new Error('未设置 DEEPSEEK_API_KEY')
 
-  async function chatJson(system, user, { temperature = 0.2 } = {}) {
+  async function chatJson(system, user, { temperature = 0.4 } = {}) {
     const res = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {

@@ -182,7 +182,7 @@ function runRefresh(source) {
   if (timer.running) { send({ type: 'refresh-busy' }); return }
   timer.running = true
   send({ type: 'refresh-start', source })
-  const child = spawn('node', ['bin/chat-radar.js', 'refresh', '--limit', '50'], { cwd: ROOT, shell: isWin })
+  const child = spawn('node', ['bin/chat-radar.js', 'refresh'], { cwd: ROOT, shell: isWin })
   child.stdout.on('data', (d) => send({ type: 'refresh-log', text: d.toString() }))
   child.stderr.on('data', (d) => send({ type: 'refresh-log', text: d.toString() }))
   child.on('close', () => { timer.running = false; send({ type: 'refresh-done' }) })
